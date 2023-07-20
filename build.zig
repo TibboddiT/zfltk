@@ -56,7 +56,7 @@ pub fn initWithOpts(b: *Build, opts: SdkOpts) !*Sdk {
 
 pub fn getZfltkModule(sdk: *Sdk, b: *Build) *Build.Module {
     _ = sdk;
-    return b.createModule(.{
+    return b.addModule("zfltk", .{
         .source_file = .{ .path = utils.thisDir() ++ "/src/zfltk.zig" },
     });
 }
@@ -78,6 +78,17 @@ pub fn build(b: *Build) !void {
     const zfltk_module = sdk.getZfltkModule(b);
     const examples_step = b.step("examples", "build the examples");
     b.default_step.dependOn(examples_step);
+
+    const lib = b.addStaticLibrary(.{
+        .name = "zfltk",
+        .target = target,
+        .optimize = mode,
+        .root_source_file = .{
+            .path = "src/zfltk.zig",
+        },
+    });
+    try sdk.link(lib);
+    b.installArtifact(lib);
 
     for (utils.examples) |example| {
         const exe = b.addExecutable(.{
