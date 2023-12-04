@@ -208,9 +208,9 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
 pub fn cfltk_link(exe: *CompileStep, install_prefix: []const u8, opts: FinalOpts) !void {
     var buf: [1024]u8 = undefined;
     const target = exe.target;
-    var inc_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/include", .{install_prefix});
+    const inc_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/include", .{install_prefix});
     exe.addIncludePath(Build.LazyPath{ .path = inc_dir });
-    var lib_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/lib/lib", .{install_prefix});
+    const lib_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/lib/lib", .{install_prefix});
     exe.addLibraryPath(Build.LazyPath{ .path = lib_dir });
     exe.linkSystemLibrary("cfltk");
     exe.linkSystemLibrary("fltk");
@@ -288,9 +288,9 @@ pub fn link_using_fltk_config(b: *Build, exe: *CompileStep, finalize_cfltk: *Bui
     exe.linkLibC();
     exe.linkLibCpp();
     var buf: [1024]u8 = undefined;
-    var inc_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/include", .{install_prefix});
+    const inc_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/include", .{install_prefix});
     exe.addIncludePath(Build.LazyPath{ .path = inc_dir });
-    var cmake_src_path = try std.fmt.allocPrint(b.allocator, "{s}/cfltk", .{install_prefix});
+    const cmake_src_path = try std.fmt.allocPrint(b.allocator, "{s}/cfltk", .{install_prefix});
     _ = std.fs.cwd().openDir(cmake_src_path, .{}) catch |git_err| {
         std.debug.print("Warning: {!}. The cfltk library will be grabbed!\n", .{git_err});
         const cfltk_fetch = b.addSystemCommand(&[_][]const u8{ "git", "clone", "https://github.com/MoAlyousef/cfltk", cmake_src_path, "--depth=1" });
