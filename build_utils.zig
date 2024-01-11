@@ -1,6 +1,6 @@
 const std = @import("std");
 const Build = std.Build;
-const CompileStep = Build.CompileStep;
+const CompileStep = Build.Step.Compile;
 
 pub const FinalOpts = struct {
     use_wayland: bool = false,
@@ -62,7 +62,7 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
         false => "",
         true => try std.fmt.bufPrint(zig_cpp_buf[0..], "-DCMAKE_CXX_COMPILER={s};c++", .{zig_exe}),
     };
-    const target = b.host.target;
+    const target = b.host.result;
     var buf: [1024]u8 = undefined;
     const sdk_lib_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/lib", .{install_prefix});
     _ = std.fs.cwd().openDir(sdk_lib_dir, .{}) catch |err| {
@@ -207,7 +207,7 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
 
 pub fn cfltk_link(exe: *CompileStep, install_prefix: []const u8, opts: FinalOpts) !void {
     var buf: [1024]u8 = undefined;
-    const target = exe.target;
+    const target = exe.rootModuleTarget();
     const inc_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/include", .{install_prefix});
     exe.addIncludePath(Build.LazyPath{ .path = inc_dir });
     const lib_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/lib/lib", .{install_prefix});
@@ -233,7 +233,7 @@ pub fn cfltk_link(exe: *CompileStep, install_prefix: []const u8, opts: FinalOpts
     exe.linkSystemLibrary("fltk_gl");
     exe.linkLibC();
     exe.linkLibCpp();
-    if (target.isWindows()) {
+    if (target.os.tag == .windows) {
         exe.linkSystemLibrary("ws2_32");
         exe.linkSystemLibrary("comctl32");
         exe.linkSystemLibrary("gdi32");
@@ -283,8 +283,84 @@ pub fn cfltk_link(exe: *CompileStep, install_prefix: []const u8, opts: FinalOpts
     }
 }
 
+pub fn cfltk_link_module(module: *Build.Module, install_prefix: []const u8, opts: FinalOpts) !void {
+    var buf: [1024]u8 = undefined;
+    const target = module.resolved_target.?.result;
+    const inc_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/include", .{install_prefix});
+    module.addIncludePath(Build.LazyPath{ .path = inc_dir });
+    const lib_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/lib/lib", .{install_prefix});
+    module.addLibraryPath(Build.LazyPath{ .path = lib_dir });
+    module.linkSystemLibrary("cfltk", .{});
+    module.linkSystemLibrary("fltk", .{});
+    module.linkSystemLibrary("fltk_images", .{});
+    if (opts.system_png) {
+        module.linkSystemLibrary("png", .{});
+    } else {
+        module.linkSystemLibrary("fltk_png", .{});
+    }
+    if (opts.system_jpeg) {
+        module.linkSystemLibrary("jpeg", .{});
+    } else {
+        module.linkSystemLibrary("fltk_jpeg", .{});
+    }
+    if (opts.system_zlib) {
+        module.linkSystemLibrary("z", .{});
+    } else {
+        module.linkSystemLibrary("fltk_z", .{});
+    }
+    module.linkSystemLibrary("fltk_gl", .{});
+    if (target.os.tag == .windows) {
+        module.linkSystemLibrary("ws2_32", .{});
+        module.linkSystemLibrary("comctl32", .{});
+        module.linkSystemLibrary("gdi32", .{});
+        module.linkSystemLibrary("oleaut32", .{});
+        module.linkSystemLibrary("ole32", .{});
+        module.linkSystemLibrary("uuid", .{});
+        module.linkSystemLibrary("shell32", .{});
+        module.linkSystemLibrary("advapi32", .{});
+        module.linkSystemLibrary("comdlg32", .{});
+        module.linkSystemLibrary("winspool", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("kernel32", .{});
+        module.linkSystemLibrary("odbc32", .{});
+        module.linkSystemLibrary("gdiplus", .{});
+        module.linkSystemLibrary("opengl32", .{});
+        module.linkSystemLibrary("glu32", .{});
+    } else if (target.isDarwin()) {
+        module.linkFramework("Carbon", .{});
+        module.linkFramework("Cocoa", .{});
+        module.linkFramework("ApplicationServices", .{});
+        module.linkFramework("OpenGL", .{});
+    } else {
+        if (opts.use_wayland) {
+            module.linkSystemLibrary("wayland-client", .{});
+            module.linkSystemLibrary("wayland-cursor", .{});
+            module.linkSystemLibrary("xkbcommon", .{});
+            module.linkSystemLibrary("dbus-1", .{});
+            module.linkSystemLibrary("EGL", .{});
+            module.linkSystemLibrary("wayland-egl", .{});
+        }
+        module.linkSystemLibrary("GL", .{});
+        module.linkSystemLibrary("GLU", .{});
+        module.linkSystemLibrary("pthread", .{});
+        module.linkSystemLibrary("X11", .{});
+        module.linkSystemLibrary("Xext", .{});
+        module.linkSystemLibrary("Xinerama", .{});
+        module.linkSystemLibrary("Xcursor", .{});
+        module.linkSystemLibrary("Xrender", .{});
+        module.linkSystemLibrary("Xfixes", .{});
+        module.linkSystemLibrary("Xft", .{});
+        module.linkSystemLibrary("fontconfig", .{});
+        module.linkSystemLibrary("pango-1.0", .{});
+        module.linkSystemLibrary("pangoxft-1.0", .{});
+        module.linkSystemLibrary("gobject-2.0", .{});
+        module.linkSystemLibrary("cairo", .{});
+        module.linkSystemLibrary("pangocairo-1.0", .{});
+    }
+}
+
 pub fn link_using_fltk_config(b: *Build, exe: *CompileStep, finalize_cfltk: *Build.Step, install_prefix: []const u8) !void {
-    const target = exe.target;
+    const target = exe.rootModuleTarget();
     exe.linkLibC();
     exe.linkLibCpp();
     var buf: [1024]u8 = undefined;
@@ -298,8 +374,8 @@ pub fn link_using_fltk_config(b: *Build, exe: *CompileStep, finalize_cfltk: *Bui
     };
     var lib = b.addStaticLibrary(.{
         .name = "cfltk",
-        .target = exe.target,
-        .optimize = exe.optimize,
+        .target = exe.root_module.resolved_target.?,
+        .optimize = exe.root_module.optimize.?,
         .use_llvm = false,
     });
     const proc = try std.ChildProcess.run(.{
@@ -345,7 +421,7 @@ pub fn link_using_fltk_config(b: *Build, exe: *CompileStep, finalize_cfltk: *Bui
         .flags = cflags.items,
     });
     if (target.isDarwin()) {
-        lib.addCSourceFile(Build.Step.Compile.CSourceFile{ .file = Build.LazyPath{ .path = try std.fmt.allocPrint(b.allocator, "{s}/cfltk/src/cfl_nswindow.m", .{install_prefix}) }, .flags = cflags.items });
+        lib.addCSourceFile(Build.Module.CSourceFile{ .file = Build.LazyPath{ .path = try std.fmt.allocPrint(b.allocator, "{s}/cfltk/src/cfl_nswindow.m", .{install_prefix}) }, .flags = cflags.items });
     }
     const proc2 = try std.ChildProcess.run(.{
         .allocator = b.allocator,

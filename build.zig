@@ -1,6 +1,6 @@
 const std = @import("std");
 const Build = std.Build;
-const CompileStep = std.build.CompileStep;
+const CompileStep = Build.Step.Compile;
 const utils = @import("build_utils.zig");
 
 pub const SdkOpts = struct {
@@ -54,11 +54,18 @@ pub fn initWithOpts(b: *Build, opts: SdkOpts) !*Sdk {
     return sdk;
 }
 
-pub fn getZfltkModule(sdk: *Sdk, b: *Build) *Build.Module {
-    _ = sdk;
-    return b.addModule("zfltk", .{
-        .source_file = .{ .path = utils.thisDir() ++ "/src/zfltk.zig" },
+pub fn getZfltkModule(sdk: *Sdk, b: *Build, target: Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *Build.Module {
+    const mod = b.addModule("zfltk", .{
+        .root_source_file = .{ .path = utils.thisDir() ++ "/src/zfltk.zig" },
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .link_libcpp = true,
     });
+
+    const install_prefix = sdk.install_prefix;
+    utils.cfltk_link_module(mod, install_prefix, sdk.opts.finalOpts()) catch unreachable;
+    return mod;
 }
 
 pub fn link(sdk: *Sdk, exe: *CompileStep) !void {
@@ -73,16 +80,16 @@ pub fn link(sdk: *Sdk, exe: *CompileStep) !void {
 
 pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
-    const mode = b.standardOptimizeOption(.{});
+    const optimize = b.standardOptimizeOption(.{});
     const sdk = try Sdk.init(b);
-    const zfltk_module = sdk.getZfltkModule(b);
+    const zfltk_module = sdk.getZfltkModule(b, target, optimize);
     const examples_step = b.step("examples", "build the examples");
     b.default_step.dependOn(examples_step);
 
     const lib = b.addStaticLibrary(.{
         .name = "zfltk",
         .target = target,
-        .optimize = mode,
+        .optimize = optimize,
         .root_source_file = .{
             .path = "src/zfltk.zig",
         },
@@ -94,10 +101,10 @@ pub fn build(b: *Build) !void {
         const exe = b.addExecutable(.{
             .name = example.output,
             .root_source_file = .{ .path = example.input },
-            .optimize = mode,
+            .optimize = optimize,
             .target = target,
         });
-        exe.addModule("zfltk", zfltk_module);
+        exe.root_module.addImport("zfltk", zfltk_module);
         try sdk.link(exe);
         examples_step.dependOn(&exe.step);
         b.installArtifact(exe);
