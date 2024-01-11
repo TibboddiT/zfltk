@@ -65,6 +65,7 @@ pub fn getZfltkModule(sdk: *Sdk, b: *Build, target: Build.ResolvedTarget, optimi
 
     const install_prefix = sdk.install_prefix;
     utils.cfltk_link_module(mod, install_prefix, sdk.opts.finalOpts()) catch unreachable;
+
     return mod;
 }
 
@@ -82,7 +83,6 @@ pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const sdk = try Sdk.init(b);
-    const zfltk_module = sdk.getZfltkModule(b, target, optimize);
     const examples_step = b.step("examples", "build the examples");
     b.default_step.dependOn(examples_step);
 
@@ -96,6 +96,9 @@ pub fn build(b: *Build) !void {
     });
     try sdk.link(lib);
     b.installArtifact(lib);
+
+    const zfltk_module = sdk.getZfltkModule(b, target, optimize);
+    zfltk_module.linkLibrary(lib);
 
     for (utils.examples) |example| {
         const exe = b.addExecutable(.{
