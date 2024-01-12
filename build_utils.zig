@@ -51,76 +51,77 @@ pub const examples = &[_]Example{
 };
 
 pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_prefix: []const u8, opts: FinalOpts) !void {
-    const target = b.host.result;
-
-    const zig_exe = b.zig_exe;
-    var zig_cc_buf: [250]u8 = undefined;
-    var zig_cpp_buf: [250]u8 = undefined;
-    var zig_ar_buf: [250]u8 = undefined;
-    var zig_ranlib_buf: [250]u8 = undefined;
-
-    const zig_ar_script_name = switch (target.os.tag) {
-        .windows => "zig-ar.bat",
-        else => "zig-ar",
-    };
-
-    const zig_ranlib_script_name = switch (target.os.tag) {
-        .windows => "zig-ranlib.bat",
-        else => "zig-ranlib",
-    };
-
-    if (opts.use_zig_cc) {
-        std.debug.print("zig cc and c++ will be used\n", .{});
-
-        const dir = try std.fs.openDirAbsolute(b.cache_root.path.?, .{});
-
-        const arFile = try dir.createFile(zig_ar_script_name, .{
-            .read = true,
-            .mode = 0o0755,
-        });
-
-        if (target.os.tag == .windows) {
-            try arFile.writer().print("{s} ar %*", .{zig_exe});
-        } else {
-            try arFile.writer().print("#!/usr/bin/env bash\n\n{s} ar $@", .{zig_exe});
-        }
-        arFile.close();
-
-        const ranlibFile = try dir.createFile(zig_ranlib_script_name, .{
-            .read = true,
-            .mode = 0o0755,
-        });
-
-        if (target.os.tag == .windows) {
-            try arFile.writer().print("{s} ranlib %*", .{zig_exe});
-        } else {
-            try arFile.writer().print("#!/usr/bin/env bash\n\n{s} ranlib $@", .{zig_exe});
-        }
-        ranlibFile.close();
-    }
-
-    const use_zig_cc = switch (opts.use_zig_cc) {
-        false => "",
-        true => try std.fmt.bufPrint(zig_cc_buf[0..], "-DCMAKE_C_COMPILER={s};cc", .{zig_exe}),
-    };
-    const use_zig_cpp = switch (opts.use_zig_cc) {
-        false => "",
-        true => try std.fmt.bufPrint(zig_cpp_buf[0..], "-DCMAKE_CXX_COMPILER={s};c++", .{zig_exe}),
-    };
-
-    const use_zig_ar = switch (opts.use_zig_cc) {
-        false => "",
-        true => try std.fmt.bufPrint(zig_ar_buf[0..], "-DCMAKE_AR={s}/{s}", .{ b.cache_root.path.?, zig_ar_script_name }),
-    };
-    const use_zig_ranlib = switch (opts.use_zig_cc) {
-        false => "",
-        true => try std.fmt.bufPrint(zig_ranlib_buf[0..], "-DCMAKE_RANLIB={s}/{s}", .{ b.cache_root.path.?, zig_ranlib_script_name }),
-    };
-
     var buf: [1024]u8 = undefined;
     const sdk_lib_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/lib", .{install_prefix});
     _ = std.fs.cwd().openDir(sdk_lib_dir, .{}) catch |err| {
         std.debug.print("Warning: {!}. The cfltk library will be rebuilt from source!\n", .{err});
+
+        const target = b.host.result;
+
+        const zig_exe = b.zig_exe;
+        var zig_cc_buf: [250]u8 = undefined;
+        var zig_cpp_buf: [250]u8 = undefined;
+        var zig_ar_buf: [250]u8 = undefined;
+        var zig_ranlib_buf: [250]u8 = undefined;
+
+        const zig_ar_script_name = switch (target.os.tag) {
+            .windows => "zig-ar.bat",
+            else => "zig-ar",
+        };
+
+        const zig_ranlib_script_name = switch (target.os.tag) {
+            .windows => "zig-ranlib.bat",
+            else => "zig-ranlib",
+        };
+
+        if (opts.use_zig_cc) {
+            std.debug.print("zig cc and c++ will be used\n", .{});
+
+            const dir = try std.fs.openDirAbsolute(b.cache_root.path.?, .{});
+
+            const arFile = try dir.createFile(zig_ar_script_name, .{
+                .read = true,
+                .mode = 0o0755,
+            });
+
+            if (target.os.tag == .windows) {
+                try arFile.writer().print("{s} ar %*", .{zig_exe});
+            } else {
+                try arFile.writer().print("#!/usr/bin/env bash\n\n{s} ar $@", .{zig_exe});
+            }
+            arFile.close();
+
+            const ranlibFile = try dir.createFile(zig_ranlib_script_name, .{
+                .read = true,
+                .mode = 0o0755,
+            });
+
+            if (target.os.tag == .windows) {
+                try arFile.writer().print("{s} ranlib %*", .{zig_exe});
+            } else {
+                try arFile.writer().print("#!/usr/bin/env bash\n\n{s} ranlib $@", .{zig_exe});
+            }
+            ranlibFile.close();
+        }
+
+        const use_zig_cc = switch (opts.use_zig_cc) {
+            false => "",
+            true => try std.fmt.bufPrint(zig_cc_buf[0..], "-DCMAKE_C_COMPILER={s};cc", .{zig_exe}),
+        };
+        const use_zig_cpp = switch (opts.use_zig_cc) {
+            false => "",
+            true => try std.fmt.bufPrint(zig_cpp_buf[0..], "-DCMAKE_CXX_COMPILER={s};c++", .{zig_exe}),
+        };
+
+        const use_zig_ar = switch (opts.use_zig_cc) {
+            false => "",
+            true => try std.fmt.bufPrint(zig_ar_buf[0..], "-DCMAKE_AR={s}/{s}", .{ b.cache_root.path.?, zig_ar_script_name }),
+        };
+        const use_zig_ranlib = switch (opts.use_zig_cc) {
+            false => "",
+            true => try std.fmt.bufPrint(zig_ranlib_buf[0..], "-DCMAKE_RANLIB={s}/{s}", .{ b.cache_root.path.?, zig_ranlib_script_name }),
+        };
+
         var bin_buf: [250]u8 = undefined;
         var src_buf: [250]u8 = undefined;
         var inst_buf: [250]u8 = undefined;
