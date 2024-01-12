@@ -51,9 +51,54 @@ pub const examples = &[_]Example{
 };
 
 pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_prefix: []const u8, opts: FinalOpts) !void {
+    const target = b.host.result;
+
     const zig_exe = b.zig_exe;
     var zig_cc_buf: [250]u8 = undefined;
     var zig_cpp_buf: [250]u8 = undefined;
+    var zig_ar_buf: [250]u8 = undefined;
+    var zig_ranlib_buf: [250]u8 = undefined;
+
+    const zig_ar_script_name = switch (target.os.tag) {
+        .windows => "zig-ar.bat",
+        else => "zig-ar",
+    };
+
+    const zig_ranlib_script_name = switch (target.os.tag) {
+        .windows => "zig-ranlib.bat",
+        else => "zig-ranlib",
+    };
+
+    if (opts.use_zig_cc) {
+        std.debug.print("zig cc and c++ will be used\n", .{});
+
+        const dir = try std.fs.openDirAbsolute(b.cache_root.path.?, .{});
+
+        const arFile = try dir.createFile(zig_ar_script_name, .{
+            .read = true,
+            .mode = 0o0755,
+        });
+
+        if (target.os.tag == .windows) {
+            try arFile.writer().print("{s} ar %*", .{zig_exe});
+        } else {
+            try arFile.writer().print("#!/usr/bin/env bash\n\n{s} ar $@", .{zig_exe});
+        }
+        arFile.close();
+
+        const ranlibFile = try dir.createFile(zig_ranlib_script_name, .{
+            .read = true,
+            .mode = 0o0755,
+        });
+
+        if (target.os.tag == .windows) {
+            try arFile.writer().print("{s} ranlib %*", .{zig_exe});
+        } else {
+            try arFile.writer().print("#!/usr/bin/env bash\n\n{s} ranlib $@", .{zig_exe});
+        }
+        ranlibFile.close();
+    }
+
     const use_zig_cc = switch (opts.use_zig_cc) {
         false => "",
         true => try std.fmt.bufPrint(zig_cc_buf[0..], "-DCMAKE_C_COMPILER={s};cc", .{zig_exe}),
@@ -62,7 +107,16 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
         false => "",
         true => try std.fmt.bufPrint(zig_cpp_buf[0..], "-DCMAKE_CXX_COMPILER={s};c++", .{zig_exe}),
     };
-    const target = b.host.result;
+
+    const use_zig_ar = switch (opts.use_zig_cc) {
+        false => "",
+        true => try std.fmt.bufPrint(zig_ar_buf[0..], "-DCMAKE_AR={s}/{s}", .{ b.cache_root.path.?, zig_ar_script_name }),
+    };
+    const use_zig_ranlib = switch (opts.use_zig_cc) {
+        false => "",
+        true => try std.fmt.bufPrint(zig_ranlib_buf[0..], "-DCMAKE_RANLIB={s}/{s}", .{ b.cache_root.path.?, zig_ranlib_script_name }),
+    };
+
     var buf: [1024]u8 = undefined;
     const sdk_lib_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/lib", .{install_prefix});
     _ = std.fs.cwd().openDir(sdk_lib_dir, .{}) catch |err| {
@@ -97,6 +151,8 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                 "-DCMAKE_BUILD_TYPE=Release",
                 use_zig_cc,
                 use_zig_cpp,
+                use_zig_ar,
+                use_zig_ranlib,
                 cmake_inst_path,
                 "-DFLTK_BUILD_TEST=OFF",
                 which_png,
@@ -117,6 +173,8 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                 "-DCMAKE_BUILD_TYPE=Release",
                 use_zig_cc,
                 use_zig_cpp,
+                use_zig_ar,
+                use_zig_ranlib,
                 cmake_inst_path,
                 "-DFLTK_BUILD_TEST=OFF",
                 which_png,
@@ -138,6 +196,8 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                     "-DCMAKE_BUILD_TYPE=Release",
                     use_zig_cc,
                     use_zig_cpp,
+                    use_zig_ar,
+                    use_zig_ranlib,
                     cmake_inst_path,
                     "-DFLTK_BUILD_TEST=OFF",
                     which_png,
@@ -160,6 +220,8 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                     "-DCMAKE_BUILD_TYPE=Release",
                     use_zig_cc,
                     use_zig_cpp,
+                    use_zig_ar,
+                    use_zig_ranlib,
                     cmake_inst_path,
                     "-DFLTK_BUILD_TEST=OFF",
                     which_png,
@@ -191,6 +253,8 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
             "Release",
             "--parallel",
             jobs,
+            // "--",
+            // "VERBOSE=1",
         });
         zfltk_build.step.dependOn(&zfltk_config.step);
 
@@ -201,7 +265,17 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
             cmake_bin_path,
         });
         zfltk_install.step.dependOn(&zfltk_build.step);
-        finalize_cfltk.dependOn(&zfltk_install.step);
+
+        const zfltk_delete_tmp_files = b.addSystemCommand(&[_][]const u8{
+            "rm",
+            "-rf",
+            try std.fmt.bufPrint(zig_ar_buf[0..], "{s}/{s}", .{ b.cache_root.path.?, zig_ar_script_name }),
+            try std.fmt.bufPrint(zig_ranlib_buf[0..], "{s}/{s}", .{ b.cache_root.path.?, zig_ranlib_script_name }),
+        });
+
+        zfltk_delete_tmp_files.step.dependOn(&zfltk_install.step);
+
+        finalize_cfltk.dependOn(&zfltk_delete_tmp_files.step);
     };
 }
 

@@ -8,7 +8,7 @@ pub const SdkOpts = struct {
     system_jpeg: bool = false,
     system_png: bool = false,
     system_zlib: bool = false,
-    use_zig_cc: bool = false,
+    use_zig_cc: bool = true,
     use_fltk_config: bool = false,
     fn finalOpts(self: SdkOpts) utils.FinalOpts {
         return utils.FinalOpts{
@@ -93,6 +93,7 @@ pub fn build(b: *Build) !void {
         .root_source_file = .{
             .path = "src/zfltk.zig",
         },
+        .use_lld = !sdk.opts.use_zig_cc,
     });
     try sdk.link(lib);
     b.installArtifact(lib);
