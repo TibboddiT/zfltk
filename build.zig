@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const Build = std.Build;
 const CompileStep = Build.Step.Compile;
 const utils = @import("build_utils.zig");
@@ -28,11 +29,11 @@ install_prefix: []const u8,
 finalize_cfltk: *std.Build.Step,
 opts: SdkOpts,
 
-pub fn init(b: *Build) !*Sdk {
-    return initWithOpts(b, .{});
+pub fn init(b: *Build, target: Build.ResolvedTarget) !*Sdk {
+    return initWithOpts(b, target, .{});
 }
 
-pub fn initWithOpts(b: *Build, opts: SdkOpts) !*Sdk {
+pub fn initWithOpts(b: *Build, target: Build.ResolvedTarget, opts: SdkOpts) !*Sdk {
     var final_opts = opts;
     final_opts.use_wayland = b.option(bool, "zfltk-use-wayland", "build zfltk for wayland") orelse opts.use_wayland;
     final_opts.system_jpeg = b.option(bool, "zfltk-system-libjpeg", "link system libjpeg") orelse opts.system_jpeg;
@@ -42,7 +43,7 @@ pub fn initWithOpts(b: *Build, opts: SdkOpts) !*Sdk {
     final_opts.use_fltk_config = b.option(bool, "zfltk-use-fltk-config", "use fltk-config instead of building fltk from source") orelse opts.use_fltk_config;
     const install_prefix = b.install_prefix;
     const finalize_cfltk = b.step("finalize cfltk install", "Installs cfltk");
-    try utils.cfltk_build_from_source(b, finalize_cfltk, install_prefix, final_opts.finalOpts());
+    try utils.cfltk_build_from_source(b, finalize_cfltk, install_prefix, target, final_opts.finalOpts());
     b.default_step.dependOn(finalize_cfltk);
     const sdk = b.allocator.create(Sdk) catch @panic("out of memory");
     sdk.* = .{
@@ -82,7 +83,7 @@ pub fn link(sdk: *Sdk, exe: *CompileStep) !void {
 pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const sdk = try Sdk.init(b);
+    const sdk = try Sdk.init(b, target);
     const examples_step = b.step("examples", "build the examples");
     b.default_step.dependOn(examples_step);
 
@@ -93,7 +94,10 @@ pub fn build(b: *Build) !void {
         .root_source_file = .{
             .path = "src/zfltk.zig",
         },
-        .use_lld = !sdk.opts.use_zig_cc,
+        .use_lld = switch (target.result.os.tag) {
+            .windows => true,
+            else => !sdk.opts.use_zig_cc,
+        },
     });
     try sdk.link(lib);
     b.installArtifact(lib);

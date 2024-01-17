@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const Build = std.Build;
 const CompileStep = Build.Step.Compile;
 
@@ -50,26 +51,39 @@ pub const examples = &[_]Example{
     Example.init("tile", "examples/tile.zig", "Tile group example"),
 };
 
-pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_prefix: []const u8, opts: FinalOpts) !void {
+pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_prefix: []const u8, target: Build.ResolvedTarget, opts: FinalOpts) !void {
     var buf: [1024]u8 = undefined;
     const sdk_lib_dir = try std.fmt.bufPrint(buf[0..], "{s}/cfltk/lib", .{install_prefix});
     _ = std.fs.cwd().openDir(sdk_lib_dir, .{}) catch |err| {
         std.debug.print("Warning: {!}. The cfltk library will be rebuilt from source!\n", .{err});
 
-        const target = b.host.result;
+        var zig_exe_buf: [2048]u8 = [_]u8{0} ** 2048;
+        _ = std.mem.replace(u8, b.zig_exe, "\\", "/", zig_exe_buf[0..b.zig_exe.len]);
+        const zig_exe = zig_exe_buf[0..b.zig_exe.len];
+        var zig_cache_root_buf: [2048]u8 = [_]u8{0} ** 2048;
+        _ = std.mem.replace(u8, b.cache_root.path.?, "\\", "/", zig_cache_root_buf[0..b.cache_root.path.?.len]);
+        const zig_cache_root = zig_cache_root_buf[0..b.cache_root.path.?.len];
+        var zig_cc_buf: [4096]u8 = undefined;
+        var zig_cpp_buf: [4096]u8 = undefined;
+        var zig_ar_buf: [4096]u8 = undefined;
+        var zig_ranlib_buf: [4096]u8 = undefined;
 
-        const zig_exe = b.zig_exe;
-        var zig_cc_buf: [250]u8 = undefined;
-        var zig_cpp_buf: [250]u8 = undefined;
-        var zig_ar_buf: [250]u8 = undefined;
-        var zig_ranlib_buf: [250]u8 = undefined;
+        const zig_cc_script_name = switch (builtin.os.tag) {
+            .windows => "zig-cc.bat",
+            else => "zig-cc",
+        };
 
-        const zig_ar_script_name = switch (target.os.tag) {
+        const zig_cpp_script_name = switch (builtin.os.tag) {
+            .windows => "zig-cpp.bat",
+            else => "zig-cpp",
+        };
+
+        const zig_ar_script_name = switch (builtin.os.tag) {
             .windows => "zig-ar.bat",
             else => "zig-ar",
         };
 
-        const zig_ranlib_script_name = switch (target.os.tag) {
+        const zig_ranlib_script_name = switch (builtin.os.tag) {
             .windows => "zig-ranlib.bat",
             else => "zig-ranlib",
         };
@@ -77,14 +91,50 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
         if (opts.use_zig_cc) {
             std.debug.print("zig cc and c++ will be used\n", .{});
 
-            const dir = try std.fs.openDirAbsolute(b.cache_root.path.?, .{});
+            var dir = try std.fs.openDirAbsolute(b.cache_root.path.?, .{});
+
+            const ccFile = try dir.createFile(zig_cc_script_name, .{
+                .read = true,
+                .mode = switch (builtin.os.tag) {
+                    .windows => 0,
+                    .wasi => 0,
+                    else => 0o755,
+                },
+            });
+
+            if (builtin.os.tag == .windows) {
+                try ccFile.writer().print("{s} cc %*", .{zig_exe});
+            } else {
+                try ccFile.writer().print("#!/usr/bin/env bash\n\n{s} cc $@", .{zig_exe});
+            }
+            ccFile.close();
+
+            const cppFile = try dir.createFile(zig_cpp_script_name, .{
+                .read = true,
+                .mode = switch (builtin.os.tag) {
+                    .windows => 0,
+                    .wasi => 0,
+                    else => 0o755,
+                },
+            });
+
+            if (builtin.os.tag == .windows) {
+                try cppFile.writer().print("{s} c++ %*", .{zig_exe});
+            } else {
+                try cppFile.writer().print("#!/usr/bin/env bash\n\n{s} c++ $@", .{zig_exe});
+            }
+            cppFile.close();
 
             const arFile = try dir.createFile(zig_ar_script_name, .{
                 .read = true,
-                .mode = 0o0755,
+                .mode = switch (builtin.os.tag) {
+                    .windows => 0,
+                    .wasi => 0,
+                    else => 0o755,
+                },
             });
 
-            if (target.os.tag == .windows) {
+            if (builtin.os.tag == .windows) {
                 try arFile.writer().print("{s} ar %*", .{zig_exe});
             } else {
                 try arFile.writer().print("#!/usr/bin/env bash\n\n{s} ar $@", .{zig_exe});
@@ -93,33 +143,39 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
 
             const ranlibFile = try dir.createFile(zig_ranlib_script_name, .{
                 .read = true,
-                .mode = 0o0755,
+                .mode = switch (builtin.os.tag) {
+                    .windows => 0,
+                    .wasi => 0,
+                    else => 0o755,
+                },
             });
 
-            if (target.os.tag == .windows) {
-                try arFile.writer().print("{s} ranlib %*", .{zig_exe});
+            if (builtin.os.tag == .windows) {
+                try ranlibFile.writer().print("{s} ranlib %*", .{zig_exe});
             } else {
-                try arFile.writer().print("#!/usr/bin/env bash\n\n{s} ranlib $@", .{zig_exe});
+                try ranlibFile.writer().print("#!/usr/bin/env bash\n\n{s} ranlib $@", .{zig_exe});
             }
             ranlibFile.close();
+
+            dir.close();
         }
 
         const use_zig_cc = switch (opts.use_zig_cc) {
             false => "",
-            true => try std.fmt.bufPrint(zig_cc_buf[0..], "-DCMAKE_C_COMPILER={s};cc", .{zig_exe}),
+            true => try std.fmt.bufPrint(zig_cc_buf[0..], "-DCMAKE_C_COMPILER={s}/{s}", .{ zig_cache_root, zig_cc_script_name }),
         };
         const use_zig_cpp = switch (opts.use_zig_cc) {
             false => "",
-            true => try std.fmt.bufPrint(zig_cpp_buf[0..], "-DCMAKE_CXX_COMPILER={s};c++", .{zig_exe}),
+            true => try std.fmt.bufPrint(zig_cpp_buf[0..], "-DCMAKE_CXX_COMPILER={s}/{s}", .{ zig_cache_root, zig_cpp_script_name }),
         };
 
         const use_zig_ar = switch (opts.use_zig_cc) {
             false => "",
-            true => try std.fmt.bufPrint(zig_ar_buf[0..], "-DCMAKE_AR={s}/{s}", .{ b.cache_root.path.?, zig_ar_script_name }),
+            true => try std.fmt.bufPrint(zig_ar_buf[0..], "-DCMAKE_AR={s}/{s}", .{ zig_cache_root, zig_ar_script_name }),
         };
         const use_zig_ranlib = switch (opts.use_zig_cc) {
             false => "",
-            true => try std.fmt.bufPrint(zig_ranlib_buf[0..], "-DCMAKE_RANLIB={s}/{s}", .{ b.cache_root.path.?, zig_ranlib_script_name }),
+            true => try std.fmt.bufPrint(zig_ranlib_buf[0..], "-DCMAKE_RANLIB={s}/{s}", .{ zig_cache_root, zig_ranlib_script_name }),
         };
 
         var bin_buf: [250]u8 = undefined;
@@ -141,7 +197,7 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
             false => "-DOPTION_USE_SYSTEM_ZLIB=OFF",
             true => "-DOPTION_USE_SYSTEM_ZLIB=ON",
         };
-        if (target.os.tag == .windows) {
+        if (target.result.os.tag == .windows) {
             zfltk_config = b.addSystemCommand(&[_][]const u8{
                 "cmake",
                 "-B",
@@ -164,7 +220,7 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                 "-DFLTK_BUILD_FLUID=OFF",
                 "-DFLTK_BUILD_FLTK_OPTIONS=OFF",
             });
-        } else if (target.isDarwin()) {
+        } else if (target.result.isDarwin()) {
             zfltk_config = b.addSystemCommand(&[_][]const u8{
                 "cmake",
                 "-B",
@@ -267,16 +323,22 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
         });
         zfltk_install.step.dependOn(&zfltk_build.step);
 
-        const zfltk_delete_tmp_files = b.addSystemCommand(&[_][]const u8{
-            "rm",
-            "-rf",
-            try std.fmt.bufPrint(zig_ar_buf[0..], "{s}/{s}", .{ b.cache_root.path.?, zig_ar_script_name }),
-            try std.fmt.bufPrint(zig_ranlib_buf[0..], "{s}/{s}", .{ b.cache_root.path.?, zig_ranlib_script_name }),
-        });
+        if (builtin.os.tag != .windows) {
+            const zfltk_delete_tmp_files = b.addSystemCommand(&[_][]const u8{
+                "rm",
+                "-rf",
+                try std.fmt.bufPrint(zig_cc_buf[0..], "{s}/{s}", .{ b.cache_root.path.?, zig_cc_script_name }),
+                try std.fmt.bufPrint(zig_cpp_buf[0..], "{s}/{s}", .{ b.cache_root.path.?, zig_cpp_script_name }),
+                try std.fmt.bufPrint(zig_ar_buf[0..], "{s}/{s}", .{ b.cache_root.path.?, zig_ar_script_name }),
+                try std.fmt.bufPrint(zig_ranlib_buf[0..], "{s}/{s}", .{ b.cache_root.path.?, zig_ranlib_script_name }),
+            });
 
-        zfltk_delete_tmp_files.step.dependOn(&zfltk_install.step);
+            zfltk_delete_tmp_files.step.dependOn(&zfltk_install.step);
 
-        finalize_cfltk.dependOn(&zfltk_delete_tmp_files.step);
+            finalize_cfltk.dependOn(&zfltk_delete_tmp_files.step);
+        } else {
+            finalize_cfltk.dependOn(&zfltk_install.step);
+        }
     };
 }
 
