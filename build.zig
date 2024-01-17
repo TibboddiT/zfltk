@@ -64,10 +64,48 @@ pub fn getZfltkModule(sdk: *Sdk, b: *Build, target: Build.ResolvedTarget, optimi
         .link_libcpp = true,
     });
 
+    const nps = std.zig.system.NativePaths.detect(b.allocator, b.host.result) catch unreachable;
+
+    for (nps.include_dirs.items) |dir| {
+        mod.addIncludePath(.{
+            .path = dir,
+        });
+    }
+
+    for (nps.lib_dirs.items) |dir| {
+        mod.addLibraryPath(.{
+            .path = dir,
+        });
+    }
+
     const install_prefix = sdk.install_prefix;
     utils.cfltk_link_module(mod, install_prefix, sdk.opts.finalOpts()) catch unreachable;
 
     return mod;
+}
+
+pub fn linkLib(sdk: *Sdk, b: *Build, exe: *CompileStep) !void {
+    exe.step.dependOn(sdk.finalize_cfltk);
+    const install_prefix = sdk.install_prefix;
+    if (sdk.opts.use_fltk_config) {
+        try utils.link_using_fltk_config(sdk.builder, exe, sdk.finalize_cfltk, sdk.install_prefix);
+    } else {
+        const nps = std.zig.system.NativePaths.detect(b.allocator, b.host.result) catch unreachable;
+
+        for (nps.include_dirs.items) |dir| {
+            exe.root_module.addIncludePath(.{
+                .path = dir,
+            });
+        }
+
+        for (nps.lib_dirs.items) |dir| {
+            exe.root_module.addLibraryPath(.{
+                .path = dir,
+            });
+        }
+
+        try utils.cfltk_link(exe, install_prefix, sdk.opts.finalOpts());
+    }
 }
 
 pub fn link(sdk: *Sdk, exe: *CompileStep) !void {
@@ -99,7 +137,7 @@ pub fn build(b: *Build) !void {
             else => !sdk.opts.use_zig_cc,
         },
     });
-    try sdk.link(lib);
+    try sdk.linkLib(b, lib);
     b.installArtifact(lib);
 
     const zfltk_module = sdk.getZfltkModule(b, target, optimize);
