@@ -197,6 +197,19 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
             false => "-DOPTION_USE_SYSTEM_ZLIB=OFF",
             true => "-DOPTION_USE_SYSTEM_ZLIB=ON",
         };
+
+        // const triple = try target.result.zigTriple(b.allocator);
+        // var c_triple_buf: [250]u8 = undefined;
+        // var cpp_triple_buf: [250]u8 = undefined;
+        // const cmake_c_triple = switch (opts.use_zig_cc) {
+        //     true => try std.fmt.bufPrint(c_triple_buf[0..], "-DCMAKE_C_COMPILER_TARGET={s}", .{triple}),
+        //     else => "",
+        // };
+        // const cmake_cpp_triple = switch (opts.use_zig_cc) {
+        //     true => try std.fmt.bufPrint(cpp_triple_buf[0..], "-DCMAKE_CXX_COMPILER_TARGET={s}", .{triple}),
+        //     else => "",
+        // };
+
         if (target.result.os.tag == .windows) {
             zfltk_config = b.addSystemCommand(&[_][]const u8{
                 "cmake",
@@ -210,6 +223,8 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                 use_zig_cpp,
                 use_zig_ar,
                 use_zig_ranlib,
+                // cmake_c_triple,
+                // cmake_cpp_triple,
                 cmake_inst_path,
                 "-DFLTK_BUILD_TEST=OFF",
                 which_png,
@@ -219,6 +234,7 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                 "-DCFLTK_USE_OPENGL=ON",
                 "-DFLTK_BUILD_FLUID=OFF",
                 "-DFLTK_BUILD_FLTK_OPTIONS=OFF",
+                // "-DZIG_TARGET_MCPU=baseline",
             });
         } else if (target.result.isDarwin()) {
             zfltk_config = b.addSystemCommand(&[_][]const u8{
@@ -232,6 +248,8 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                 use_zig_cpp,
                 use_zig_ar,
                 use_zig_ranlib,
+                // cmake_c_triple,
+                // cmake_cpp_triple,
                 cmake_inst_path,
                 "-DFLTK_BUILD_TEST=OFF",
                 which_png,
@@ -241,6 +259,7 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                 "-DCFLTK_USE_OPENGL=ON",
                 "-DFLTK_BUILD_FLUID=OFF",
                 "-DFLTK_BUILD_FLTK_OPTIONS=OFF",
+                // "-DZIG_TARGET_MCPU=baseline",
             });
         } else {
             if (opts.use_wayland) {
@@ -255,6 +274,8 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                     use_zig_cpp,
                     use_zig_ar,
                     use_zig_ranlib,
+                    // cmake_c_triple,
+                    // cmake_cpp_triple,
                     cmake_inst_path,
                     "-DFLTK_BUILD_TEST=OFF",
                     which_png,
@@ -266,6 +287,7 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                     "-DFLTK_BUILD_FLUID=OFF",
                     "-DFLTK_BUILD_FLTK_OPTIONS=OFF",
                     "-DOPTION_ALLOW_GTK_PLUGIN=OFF",
+                    // "-DZIG_TARGET_MCPU=baseline",
                 });
             } else {
                 zfltk_config = b.addSystemCommand(&[_][]const u8{
@@ -279,6 +301,8 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                     use_zig_cpp,
                     use_zig_ar,
                     use_zig_ranlib,
+                    // cmake_c_triple,
+                    // cmake_cpp_triple,
                     cmake_inst_path,
                     "-DFLTK_BUILD_TEST=OFF",
                     which_png,
@@ -291,6 +315,7 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                     "-DOPTION_USE_CAIRO=ON",
                     "-DFLTK_BUILD_FLUID=OFF",
                     "-DFLTK_BUILD_FLTK_OPTIONS=OFF",
+                    // "-DZIG_TARGET_MCPU=baseline",
                 });
             }
         }
