@@ -58,8 +58,8 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
         std.debug.print("Warning: {!}. The cfltk library will be rebuilt from source!\n", .{err});
 
         var zig_exe_buf: [2048]u8 = [_]u8{0} ** 2048;
-        _ = std.mem.replace(u8, b.zig_exe, "\\", "/", zig_exe_buf[0..b.zig_exe.len]);
-        const zig_exe = zig_exe_buf[0..b.zig_exe.len];
+        _ = std.mem.replace(u8, b.graph.zig_exe, "\\", "/", zig_exe_buf[0..b.graph.zig_exe.len]);
+        const zig_exe = zig_exe_buf[0..b.graph.zig_exe.len];
         var zig_cache_root_buf: [2048]u8 = [_]u8{0} ** 2048;
         _ = std.mem.replace(u8, b.cache_root.path.?, "\\", "/", zig_cache_root_buf[0..b.cache_root.path.?.len]);
         const zig_cache_root = zig_cache_root_buf[0..b.cache_root.path.?.len];
