@@ -186,16 +186,16 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
         const cmake_inst_path = try std.fmt.bufPrint(inst_buf[0..], "-DCMAKE_INSTALL_PREFIX={s}/cfltk/lib", .{install_prefix});
         var zfltk_config: *std.Build.Step.Run = undefined;
         const which_png = switch (opts.system_png) {
-            false => "-DOPTION_USE_SYSTEM_LIBPNG=OFF",
-            true => "-DOPTION_USE_SYSTEM_LIBPNG=ON",
+            false => "-DFLTK_USE_SYSTEM_LIBPNG=OFF",
+            true => "-DFLTK_USE_SYSTEM_LIBPNG=ON",
         };
         const which_jpeg = switch (opts.system_jpeg) {
-            false => "-DOPTION_USE_SYSTEM_LIBJPEG=OFF",
-            true => "-DOPTION_USE_SYSTEM_LIBJPEG=ON",
+            false => "-DFLTK_USE_SYSTEM_LIBJPEG=OFF",
+            true => "-DFLTK_USE_SYSTEM_LIBJPEG=ON",
         };
         const which_zlib = switch (opts.system_zlib) {
-            false => "-DOPTION_USE_SYSTEM_ZLIB=OFF",
-            true => "-DOPTION_USE_SYSTEM_ZLIB=ON",
+            false => "-DFLTK_USE_SYSTEM_ZLIB=OFF",
+            true => "-DFLTK_USE_SYSTEM_ZLIB=ON",
         };
 
         // const triple = try target.result.zigTriple(b.allocator);
@@ -230,7 +230,7 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                 which_png,
                 which_jpeg,
                 which_zlib,
-                "-DOPTION_USE_GL=ON",
+                "-DFLTK_USE_GL=ON",
                 "-DCFLTK_USE_OPENGL=ON",
                 "-DFLTK_BUILD_FLUID=OFF",
                 "-DFLTK_BUILD_FLTK_OPTIONS=OFF",
@@ -255,7 +255,7 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                 which_png,
                 which_jpeg,
                 which_zlib,
-                "-DOPTION_USE_GL=ON",
+                "-DFLTK_USE_GL=ON",
                 "-DCFLTK_USE_OPENGL=ON",
                 "-DFLTK_BUILD_FLUID=OFF",
                 "-DFLTK_BUILD_FLTK_OPTIONS=OFF",
@@ -281,12 +281,11 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                     which_png,
                     which_jpeg,
                     which_zlib,
-                    "-DOPTION_USE_GL=ON",
+                    "-DFLTK_USE_GL=ON",
                     "-DCFLTK_USE_OPENGL=ON",
-                    "-DOPTION_USE_WAYLAND=ON",
+                    "-DFLTK_BACKEND_WAYLAND=ON",
                     "-DFLTK_BUILD_FLUID=OFF",
                     "-DFLTK_BUILD_FLTK_OPTIONS=OFF",
-                    "-DOPTION_ALLOW_GTK_PLUGIN=OFF",
                     // "-DZIG_TARGET_MCPU=baseline",
                 });
             } else {
@@ -308,11 +307,11 @@ pub fn cfltk_build_from_source(b: *Build, finalize_cfltk: *Build.Step, install_p
                     which_png,
                     which_jpeg,
                     which_zlib,
-                    "-DOPTION_USE_PANGO=ON", // enable if rtl/cjk font support is needed
-                    "-DOPTION_USE_GL=ON",
+                    "-DFLTK_USE_PANGO=ON", // enable if rtl/cjk font support is needed
+                    "-DFLTK_USE_GL=ON",
                     "-DCFLTK_USE_OPENGL=ON",
-                    "-DOPTION_USE_WAYLAND=OFF",
-                    "-DOPTION_USE_CAIRO=ON",
+                    "-DFLTK_BACKEND_WAYLAND=OFF",
+                    "-DFLTK_USE_CAIRO=ON",
                     "-DFLTK_BUILD_FLUID=OFF",
                     "-DFLTK_BUILD_FLTK_OPTIONS=OFF",
                     // "-DZIG_TARGET_MCPU=baseline",
