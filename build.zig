@@ -85,27 +85,28 @@ pub fn getZfltkModule(sdk: *Sdk, b: *Build, target: Build.ResolvedTarget, optimi
 }
 
 pub fn linkLib(sdk: *Sdk, b: *Build, exe: *CompileStep) !void {
+    _ = b;
     exe.step.dependOn(sdk.finalize_cfltk);
-    const install_prefix = sdk.install_prefix;
-    if (sdk.opts.use_fltk_config) {
-        try utils.link_using_fltk_config(sdk.builder, exe, sdk.finalize_cfltk, sdk.install_prefix);
-    } else {
-        try utils.cfltk_link(exe, install_prefix, sdk.opts.finalOpts());
+    // const install_prefix = sdk.install_prefix;
+    // if (sdk.opts.use_fltk_config) {
+    //     try utils.link_using_fltk_config(sdk.builder, exe, sdk.finalize_cfltk, sdk.install_prefix);
+    // } else {
+    //     try utils.cfltk_link(exe, install_prefix, sdk.opts.finalOpts());
 
-        const nps = std.zig.system.NativePaths.detect(b.allocator, b.host.result) catch unreachable;
+    //     const nps = std.zig.system.NativePaths.detect(b.allocator, b.host.result) catch unreachable;
 
-        for (nps.include_dirs.items) |dir| {
-            exe.root_module.addIncludePath(.{
-                .path = dir,
-            });
-        }
+    //     for (nps.include_dirs.items) |dir| {
+    //         exe.root_module.addIncludePath(.{
+    //             .path = dir,
+    //         });
+    //     }
 
-        for (nps.lib_dirs.items) |dir| {
-            exe.root_module.addLibraryPath(.{
-                .path = dir,
-            });
-        }
-    }
+    //     for (nps.lib_dirs.items) |dir| {
+    //         exe.root_module.addLibraryPath(.{
+    //             .path = dir,
+    //         });
+    //     }
+    // }
 }
 
 pub fn link(sdk: *Sdk, exe: *CompileStep) !void {
@@ -125,17 +126,18 @@ pub fn build(b: *Build) !void {
     const examples_step = b.step("examples", "build the examples");
     b.default_step.dependOn(examples_step);
 
-    // const lib = b.addStaticLibrary(.{
-    //     .name = "zfltk",
-    //     .target = target,
-    //     .optimize = optimize,
-    //     .root_source_file = .{
-    //         .path = "src/zfltk.zig",
-    //     },
-    // });
-    // try sdk.linkLib(b, lib);
+    const lib = b.addStaticLibrary(.{
+        .name = "zfltk",
+        .target = target,
+        .optimize = optimize,
+        .root_source_file = .{
+            .path = "src/zfltk.zig",
+        },
+    });
+    try sdk.linkLib(b, lib);
 
     const zfltk_module = sdk.getZfltkModule(b, target, optimize);
+    zfltk_module.linkLibrary(lib);
 
     for (utils.examples) |example| {
         const exe = b.addExecutable(.{
@@ -152,9 +154,5 @@ pub fn build(b: *Build) !void {
         const run_cmd = b.addRunArtifact(exe);
         const run_step = b.step(b.fmt("run-{s}", .{example.output}), example.description.?);
         run_step.dependOn(&run_cmd.step);
-    }
-
-    for (zfltk_module.depending_steps.keys()) |compile| {
-        compile.step.dependOn(sdk.finalize_cfltk);
     }
 }
