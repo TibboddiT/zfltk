@@ -1,11 +1,5 @@
-const c = @cImport({
-    @cInclude("cfl.h"); // Fl_init_all, Fl_run
-    @cInclude("cfl_enums.h"); // Fl_Color_*
-    @cInclude("cfl_image.h"); // Fl_register_images
-    @cInclude("cfl_button.h"); // Fl_Button
-    @cInclude("cfl_box.h"); // Fl_Box
-    @cInclude("cfl_window.h"); // Fl_Window
-});
+const zfltk = @import("zfltk");
+const c = zfltk.c;
 
 // fltk initizialization of optional functionalities
 pub fn fltkInit() void {

@@ -537,7 +537,6 @@ pub fn link_using_fltk_config(b: *Build, exe: *CompileStep, finalize_cfltk: *Bui
         .name = "cfltk",
         .target = exe.root_module.resolved_target.?,
         .optimize = exe.root_module.optimize.?,
-        .use_llvm = false,
     });
     const proc = try std.ChildProcess.run(.{
         .allocator = b.allocator,
