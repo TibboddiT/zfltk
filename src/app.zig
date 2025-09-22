@@ -242,6 +242,8 @@ fn zfltk_timeout_handler_ex(data: ?*anyopaque) callconv(.c) void {
     //    std.debug.print("test1 {d}\n", .{container[0]});
 
     cb(@ptrFromInt(container[1]));
+
+    allocator.free(container);
 }
 
 pub fn setMenuLinespacing(h: i32) void {
